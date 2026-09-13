@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>9×17 Pong — Sundai Hack #140</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <div>
+        <p class="eyebrow">Sundai Hack #140</p>
+        <h1>9×17 Pong</h1>
+        <p class="sub">Play Pong on a 9-wide × 17-high pixel display and mirror every frame to <strong>mellow-heron</strong>.</p>
+      </div>
+      <a class="secondary" href="https://sundai.willsarg.com/mellow-heron" target="_blank" rel="noreferrer">Open building viewer ↗</a>
+    </header>
+
+    <section class="grid">
+      <div class="panel game-panel">
+        <div class="toolbar">
+          <label>Mode
+            <select id="mode">
+              <option value="local">2 players — same device</option>
+              <option value="ai">1 player vs AI</option>
+              <option value="demo">AI vs AI demo</option>
+            </select>
+          </label>
+          <label>Speed
+            <select id="fps">
+              <option value="6">6 FPS</option>
+              <option value="8" selected>8 FPS</option>
+              <option value="10">10 FPS</option>
+              <option value="12">12 FPS</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="score"><span id="topScore">0</span><span>:</span><span id="bottomScore">0</span></div>
+        <div id="board" class="board" aria-label="9 by 17 Pong display"></div>
+
+        <div class="actions">
+          <button id="start">Start</button>
+          <button id="pause" class="secondary">Pause</button>
+          <button id="reset" class="secondary">Reset</button>
+        </div>
+
+        <div class="controls">
+          <div>
+            <strong>Top paddle</strong>
+            <div class="keys"><button data-move="top-left">◀</button><span>A / D</span><button data-move="top-right">▶</button></div>
+          </div>
+          <div>
+            <strong>Bottom paddle</strong>
+            <div class="keys"><button data-move="bottom-left">◀</button><span>← / →</span><button data-move="bottom-right">▶</button></div>
+          </div>
+        </div>
+      </div>
+
+      <aside class="panel info-panel">
+        <h2>Live display</h2>
+        <p id="status" class="status">Ready. Frames will post to mellow-heron when the game starts.</p>
+        <div class="instance">
+          <code>https://sundai.willsarg.com/api/i/mellow-heron/frame</code>
+        </div>
+        <h3>How people play</h3>
+        <p><strong>Same-device multiplayer:</strong> yes. One person controls the top paddle with A/D; the other uses the arrow keys.</p>
+        <p><strong>Remote multiplayer:</strong> not yet. That requires a small realtime server to synchronize two browsers. The building API only receives display frames.</p>
+        <h3>Building viewer</h3>
+        <p>The browser game sends the same 17×9 RGB frame shown on the left to the Sundai simulator.</p>
+        <iframe src="https://sundai.willsarg.com/mellow-heron?view=close&fx=0" title="mellow-heron viewer" loading="lazy"></iframe>
+        <p class="tiny">If the simulator blocks embedding, use “Open building viewer” above.</p>
+      </aside>
+    </section>
+  </main>
+  <script src="script.js"></script>
+</body>
+</html>
