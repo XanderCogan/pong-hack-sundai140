@@ -12,7 +12,7 @@
       <div>
         <p class="eyebrow">Sundai Hack #140</p>
         <h1>9×17 Pong</h1>
-        <p class="sub">Only one browser can control the game at a time. Everyone else automatically becomes a spectator until the active controller leaves.</p>
+        <p class="sub">One browser controls the game at a time. Every match is first to 5 points.</p>
       </div>
       <a class="secondary" href="https://sundai.willsarg.com/mellow-heron" target="_blank" rel="noreferrer">Open building viewer ↗</a>
     </header>
@@ -37,7 +37,7 @@
           <span class="score-colon">:</span>
           <div><span class="score-label">BOTTOM</span><span id="bottomScore" class="score-number">0</span></div>
         </div>
-        <div id="gameEvent" class="game-event" aria-live="polite"></div>
+        <div id="gameEvent" class="game-event" aria-live="polite">FIRST TO 5</div>
         <div id="board" class="board" aria-label="9 by 17 Pong display"></div>
 
         <div class="actions">
@@ -62,9 +62,11 @@
         <h2>Live display</h2>
         <p id="status" class="status">Checking whether another laptop already has control…</p>
         <div class="instance"><code>https://sundai.willsarg.com/api/i/mellow-heron/frame</code></div>
+        <h3>Match rules</h3>
+        <p>Matches are first to 5 points. As soon as either side reaches 5, the match ends and this browser releases control for another player.</p>
         <h3>Single-player lock</h3>
-        <p>The first browser to get the controller lease can play. Later visitors are spectator-only and cannot send paddle input or frames.</p>
-        <p>If the active browser closes or disconnects, the lock expires automatically after a few seconds and a spectator can take over.</p>
+        <p>The browser holding the controller can play. Other visitors are spectator-only and cannot send paddle input or frames.</p>
+        <p>If the active browser closes or disconnects, its controller lock expires automatically after a few seconds.</p>
         <h3>Takeover rule</h3>
         <p><strong>A/D:</strong> claims the top paddle and disables top AI.</p>
         <p><strong>←/→:</strong> claims the bottom paddle and disables bottom AI.</p>
@@ -76,6 +78,6 @@
       </aside>
     </section>
   </main>
-  <script src="script.js?v=6"></script>
+  <script src="script.js?v=7"></script>
 </body>
 </html>
