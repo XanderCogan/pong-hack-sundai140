@@ -4,7 +4,8 @@ import crypto from 'node:crypto';
 const PORT = Number(process.env.PORT || 3000);
 const TARGET = process.env.SUNDAI_FRAME_URL;
 const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || 'https://xandercogan.github.io';
-const LEASE_MS = Number(process.env.LEASE_MS || 10000);
+const LEASE_MS = Number(process.env.LEASE_MS || 8000);
+const WAITING_TTL_MS = Number(process.env.WAITING_TTL_MS || 15000);
 const MAX_BODY = 64 * 1024;
 const MAX_FRAMES_PER_SECOND = 20;
 
@@ -13,15 +14,86 @@ if (!TARGET) {
   process.exit(1);
 }
 
-let lease = null;
+let active = null; // { clientId, token, expiresAt }
+let queue = [];    // [{ clientId, joinedAt, lastSeen }]
 let frameWindowStart = 0;
 let frameWindowCount = 0;
 
 function now() { return Date.now(); }
-function currentLease() {
-  if (lease && lease.expiresAt <= now()) lease = null;
-  return lease;
+function validClientId(v) { return typeof v === 'string' && /^[A-Za-z0-9_-]{12,128}$/.test(v); }
+function newToken() { return crypto.randomBytes(32).toString('base64url'); }
+
+function pruneQueue() {
+  const cutoff = now() - WAITING_TTL_MS;
+  const seen = new Set();
+  queue = queue.filter((q) => {
+    if (!q || !validClientId(q.clientId) || q.lastSeen < cutoff) return false;
+    if (active && q.clientId === active.clientId) return false;
+    if (seen.has(q.clientId)) return false;
+    seen.add(q.clientId);
+    return true;
+  });
 }
+
+function promoteNext() {
+  pruneQueue();
+  if (active || queue.length === 0) return;
+  const next = queue.shift();
+  active = {
+    clientId: next.clientId,
+    token: newToken(),
+    expiresAt: now() + LEASE_MS
+  };
+}
+
+function refreshState() {
+  if (active && active.expiresAt <= now()) active = null;
+  pruneQueue();
+  promoteNext();
+}
+
+function touchQueued(clientId) {
+  const q = queue.find((x) => x.clientId === clientId);
+  if (q) q.lastSeen = now();
+}
+
+function stateFor(clientId) {
+  refreshState();
+  if (active && active.clientId === clientId) {
+    return {
+      state: 'active',
+      token: active.token,
+      expiresAt: active.expiresAt,
+      leaseMs: LEASE_MS,
+      queueLength: queue.length,
+      position: 0
+    };
+  }
+  const idx = queue.findIndex((q) => q.clientId === clientId);
+  if (idx >= 0) {
+    return {
+      state: 'queued',
+      position: idx + 1,
+      queueLength: queue.length,
+      active: !!active
+    };
+  }
+  return { state: 'none', position: null, queueLength: queue.length, active: !!active };
+}
+
+function join(clientId) {
+  refreshState();
+  if (active && active.clientId === clientId) return stateFor(clientId);
+  const existing = queue.find((q) => q.clientId === clientId);
+  if (existing) {
+    existing.lastSeen = now();
+    return stateFor(clientId);
+  }
+  queue.push({ clientId, joinedAt: now(), lastSeen: now() });
+  promoteNext();
+  return stateFor(clientId);
+}
+
 function corsHeaders(req) {
   const origin = req.headers.origin;
   if (origin === ALLOWED_ORIGIN) {
@@ -35,6 +107,7 @@ function corsHeaders(req) {
   }
   return {};
 }
+
 function sendJson(req, res, status, obj) {
   res.writeHead(status, {
     'Content-Type': 'application/json; charset=utf-8',
@@ -44,9 +117,9 @@ function sendJson(req, res, status, obj) {
   });
   res.end(JSON.stringify(obj));
 }
-function originAllowed(req) {
-  return req.headers.origin === ALLOWED_ORIGIN;
-}
+
+function originAllowed(req) { return req.headers.origin === ALLOWED_ORIGIN; }
+
 async function readJson(req) {
   let size = 0;
   const chunks = [];
@@ -58,15 +131,23 @@ async function readJson(req) {
   const text = Buffer.concat(chunks).toString('utf8');
   return text ? JSON.parse(text) : {};
 }
+
 function tokenFrom(req) {
   const h = req.headers.authorization || '';
   return h.startsWith('Bearer ') ? h.slice(7) : '';
 }
-function isAuthorized(req) {
-  const l = currentLease();
-  const token = tokenFrom(req);
-  return !!(l && token && crypto.timingSafeEqual(Buffer.from(token), Buffer.from(l.token)));
+
+function safeEqual(a, b) {
+  if (!a || !b) return false;
+  const aa = Buffer.from(a), bb = Buffer.from(b);
+  return aa.length === bb.length && crypto.timingSafeEqual(aa, bb);
 }
+
+function isAuthorized(req) {
+  refreshState();
+  return !!(active && safeEqual(tokenFrom(req), active.token));
+}
+
 function validateFrame(v) {
   if (!Array.isArray(v) || v.length !== 17) return false;
   for (const row of v) {
@@ -78,6 +159,7 @@ function validateFrame(v) {
   }
   return true;
 }
+
 function frameRateAllowed() {
   const t = now();
   if (t - frameWindowStart >= 1000) {
@@ -90,54 +172,78 @@ function frameRateAllowed() {
 
 const server = http.createServer(async (req, res) => {
   try {
+    const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+
     if (req.method === 'OPTIONS') {
       if (!originAllowed(req)) return sendJson(req, res, 403, { error: 'origin denied' });
       res.writeHead(204, corsHeaders(req));
       return res.end();
     }
 
-    if (req.url === '/health' && req.method === 'GET') {
-      return sendJson(req, res, 200, { ok: true });
+    if (url.pathname === '/health' && req.method === 'GET') {
+      refreshState();
+      return sendJson(req, res, 200, { ok: true, active: !!active, queueLength: queue.length });
     }
 
     if (!originAllowed(req)) return sendJson(req, res, 403, { error: 'origin denied' });
 
-    if (req.url === '/api/status' && req.method === 'GET') {
-      const l = currentLease();
+    if (url.pathname === '/api/join' && req.method === 'POST') {
+      const body = await readJson(req);
+      if (!validClientId(body.clientId)) return sendJson(req, res, 400, { error: 'invalid clientId' });
+      return sendJson(req, res, 200, join(body.clientId));
+    }
+
+    if (url.pathname === '/api/status' && req.method === 'GET') {
+      const clientId = url.searchParams.get('clientId') || '';
+      if (!validClientId(clientId)) return sendJson(req, res, 400, { error: 'invalid clientId' });
+      touchQueued(clientId);
+      return sendJson(req, res, 200, stateFor(clientId));
+    }
+
+    if (url.pathname === '/api/heartbeat' && req.method === 'POST') {
+      if (!isAuthorized(req)) return sendJson(req, res, 401, { error: 'not controller' });
+      active.expiresAt = now() + LEASE_MS;
+      return sendJson(req, res, 200, stateFor(active.clientId));
+    }
+
+    if (url.pathname === '/api/release' && req.method === 'POST') {
+      if (!isAuthorized(req)) return sendJson(req, res, 401, { error: 'not controller' });
+      const oldId = active.clientId;
+      active = null;
+      promoteNext();
+      return sendJson(req, res, 200, { ok: true, releasedClientId: oldId, queueLength: queue.length });
+    }
+
+    if (url.pathname === '/api/game-over' && req.method === 'POST') {
+      if (!isAuthorized(req)) return sendJson(req, res, 401, { error: 'not controller' });
+      refreshState();
+      const oldClientId = active.clientId;
+      pruneQueue();
+
+      if (queue.length === 0) {
+        active.expiresAt = now() + LEASE_MS;
+        return sendJson(req, res, 200, {
+          continued: true,
+          ...stateFor(oldClientId)
+        });
+      }
+
+      // Round-robin: the player who just finished goes to the back of the line.
+      queue.push({ clientId: oldClientId, joinedAt: now(), lastSeen: now() });
+      active = null;
+      promoteNext();
       return sendJson(req, res, 200, {
-        active: !!l,
-        expiresAt: l?.expiresAt ?? null
+        continued: false,
+        ...stateFor(oldClientId)
       });
     }
 
-    if (req.url === '/api/claim' && req.method === 'POST') {
-      const existing = currentLease();
-      if (existing) {
-        return sendJson(req, res, 409, { granted: false, active: true, expiresAt: existing.expiresAt });
-      }
-      const token = crypto.randomBytes(32).toString('base64url');
-      lease = { token, expiresAt: now() + LEASE_MS };
-      return sendJson(req, res, 201, { granted: true, token, expiresAt: lease.expiresAt, leaseMs: LEASE_MS });
-    }
-
-    if (req.url === '/api/heartbeat' && req.method === 'POST') {
-      if (!isAuthorized(req)) return sendJson(req, res, 401, { error: 'not controller' });
-      lease.expiresAt = now() + LEASE_MS;
-      return sendJson(req, res, 200, { ok: true, expiresAt: lease.expiresAt });
-    }
-
-    if (req.url === '/api/release' && req.method === 'POST') {
-      if (!isAuthorized(req)) return sendJson(req, res, 401, { error: 'not controller' });
-      lease = null;
-      return sendJson(req, res, 200, { ok: true });
-    }
-
-    if (req.url === '/api/frame' && req.method === 'POST') {
+    if (url.pathname === '/api/frame' && req.method === 'POST') {
       if (!isAuthorized(req)) return sendJson(req, res, 401, { error: 'not controller' });
       if (!frameRateAllowed()) return sendJson(req, res, 429, { error: 'frame rate limited' });
       const frame = await readJson(req);
       if (!validateFrame(frame)) return sendJson(req, res, 400, { error: 'invalid 17x9 RGB frame' });
-      lease.expiresAt = now() + LEASE_MS;
+      active.expiresAt = now() + LEASE_MS;
       const upstream = await fetch(TARGET, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -158,5 +264,5 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, '0.0.0.0', () => {
-  console.log(`controller lock listening on ${PORT}`);
+  console.log(`pong queue server listening on ${PORT}`);
 });
