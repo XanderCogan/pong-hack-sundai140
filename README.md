@@ -6,29 +6,58 @@ A 9 × 17 Pong game for the MIT Green Building simulator used at Sundai Hack #14
 - Paddles: 3 pixels wide, top and bottom
 - Ball: 1 pixel
 - Default simulator instance: `mellow-heron`
-- Browser version sends frames directly to the Sundai simulator API
-- Python version is included for running the game from a terminal
+- Matches are first to 5 points
+- Only one browser controls the game at a time
+- Python version is included for terminal/autoplay use
 
-## Web version
+## Public web version
 
-The site is designed to be served with GitHub Pages at:
+GitHub Pages:
 
 `https://xandercogan.github.io/pong-hack-sundai140/`
 
-After the repository is published with GitHub Pages, open the URL, press **Start**, and use:
+Controls:
 
 - Top paddle: `A` / `D`
 - Bottom paddle: `←` / `→`
+- On-screen controls are also available
 
-There are also on-screen controls for touch devices and modes for local two-player, one-player vs AI, and AI demo.
+Both paddles begin under AI control. The first human input for a paddle permanently hands that paddle to the human for that match.
 
-The page sends 17 × 9 RGB frames to:
+A match ends immediately when either side reaches 5 points. The current public fallback then releases control so another browser can take over.
 
-`https://sundai.willsarg.com/api/i/mellow-heron/frame`
-
-and links to the building viewer at:
+Building viewer:
 
 `https://sundai.willsarg.com/mellow-heron`
+
+## FIFO queue backend
+
+The repository also contains `server/server.js`, a queue/lease service designed to sit between GitHub Pages and the Sundai frame endpoint.
+
+When that backend is deployed and `window.PONG_CONTROL_API` is configured on the GitHub page, the browser automatically switches to true FIFO queue mode:
+
+1. The first visitor gets the controller.
+2. Later visitors receive numbered queue positions.
+3. The active match ends at 5 points.
+4. If anyone is waiting, the finished player moves to the back of the queue and the next waiting player is promoted automatically.
+5. If nobody is waiting, the same player immediately starts another first-to-5 match.
+6. Closed/disconnected waiting tabs expire from the queue automatically.
+
+Until a queue backend URL is configured, the public page deliberately falls back to the simpler one-controller lease using the simulator's live-frame timestamp. That fallback is not a strict ordered queue.
+
+## Queue server configuration
+
+The queue service expects:
+
+- `SUNDAI_FRAME_URL=https://sundai.willsarg.com/api/i/mellow-heron/frame`
+- `ALLOWED_ORIGIN=https://xandercogan.github.io`
+
+Optional:
+
+- `LEASE_MS` (default `8000`)
+- `WAITING_TTL_MS` (default `15000`)
+
+The included `railway.toml` starts `server/server.js` and checks `/health`.
 
 ## Python version
 
@@ -36,14 +65,10 @@ and links to the building viewer at:
 python3 pong.py mellow-heron
 ```
 
-The Python script uses only the standard library and posts JSON frames to the same API.
-
-## Multiplayer
-
-The current browser build supports **two players on the same computer/device**. True remote two-player needs a small realtime coordination service so two browsers share one authoritative game state; the Sundai simulator API exposes frame viewing/sending but not a separate player-input channel.
+The Python script uses only the standard library and posts JSON frames to the simulator API.
 
 ## Upstream simulator
 
-Built against the interface and API documented in:
+Built against:
 
 https://github.com/willsarg/sundai-greenbuilding-sim
