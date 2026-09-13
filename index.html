@@ -31,7 +31,12 @@
           </label>
         </div>
 
-        <div class="score"><span id="topScore">0</span><span>:</span><span id="bottomScore">0</span></div>
+        <div class="scoreboard">
+          <div><span class="score-label">TOP</span><span id="topScore" class="score-number">0</span></div>
+          <span class="score-colon">:</span>
+          <div><span class="score-label">BOTTOM</span><span id="bottomScore" class="score-number">0</span></div>
+        </div>
+        <div id="gameEvent" class="game-event" aria-live="polite"></div>
         <div id="board" class="board" aria-label="9 by 17 Pong display"></div>
 
         <div class="actions">
@@ -60,12 +65,14 @@
         <p><strong>A/D:</strong> claims the top paddle and disables top AI.</p>
         <p><strong>←/→:</strong> claims the bottom paddle and disables bottom AI.</p>
         <p>The other paddle stays AI-controlled until its own controls are used.</p>
+        <h3>Scoring</h3>
+        <p>A point is awarded only when the opponent misses. A paddle deflection never changes the score.</p>
         <h3>Building viewer</h3>
         <p>The preview below is view-only so it cannot steal keyboard focus from the controller.</p>
         <iframe src="https://sundai.willsarg.com/mellow-heron?view=close&fx=0" title="mellow-heron viewer" loading="eager" tabindex="-1"></iframe>
       </aside>
     </section>
   </main>
-  <script src="script.js?v=4"></script>
+  <script src="script.js?v=5"></script>
 </body>
 </html>
