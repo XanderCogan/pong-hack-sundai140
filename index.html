@@ -24,7 +24,7 @@
             <select id="mode">
               <option value="local">2 players — same device</option>
               <option value="ai">1 player vs AI</option>
-              <option value="demo">AI vs AI demo</option>
+              <option value="demo" selected>AI vs AI demo</option>
             </select>
           </label>
           <label>Speed
@@ -60,20 +60,20 @@
 
       <aside class="panel info-panel">
         <h2>Live display</h2>
-        <p id="status" class="status">Ready. Frames will post to mellow-heron when the game starts.</p>
+        <p id="status" class="status">Starting AI demo and connecting to mellow-heron…</p>
         <div class="instance">
           <code>https://sundai.willsarg.com/api/i/mellow-heron/frame</code>
         </div>
         <h3>How people play</h3>
-        <p><strong>Same-device multiplayer:</strong> yes. One person controls the top paddle with A/D; the other uses the arrow keys.</p>
+        <p><strong>Same-device multiplayer:</strong> choose “2 players — same device.” One person controls the top paddle with A/D; the other uses the arrow keys.</p>
         <p><strong>Remote multiplayer:</strong> not yet. That requires a small realtime server to synchronize two browsers. The building API only receives display frames.</p>
         <h3>Building viewer</h3>
-        <p>The browser game sends the same 17×9 RGB frame shown on the left to the Sundai simulator.</p>
-        <iframe src="https://sundai.willsarg.com/mellow-heron?view=close&fx=0" title="mellow-heron viewer" loading="lazy"></iframe>
+        <p>The browser game sends the same 17×9 RGB frame shown on the left to the Sundai simulator. A persistent AI Pong clip also runs whenever no live player is sending frames.</p>
+        <iframe src="https://sundai.willsarg.com/mellow-heron?view=close&fx=0" title="mellow-heron viewer" loading="eager"></iframe>
         <p class="tiny">If the simulator blocks embedding, use “Open building viewer” above.</p>
       </aside>
     </section>
   </main>
-  <script src="script.js"></script>
+  <script src="script.js?v=3"></script>
 </body>
 </html>
