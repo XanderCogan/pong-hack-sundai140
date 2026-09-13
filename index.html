@@ -12,13 +12,14 @@
       <div>
         <p class="eyebrow">Sundai Hack #140</p>
         <h1>9×17 Pong</h1>
-        <p class="sub">Both paddles start on AI. The first input for a paddle permanently hands that paddle to the human for the rest of the page session.</p>
+        <p class="sub">Only one browser can control the game at a time. Everyone else automatically becomes a spectator until the active controller leaves.</p>
       </div>
       <a class="secondary" href="https://sundai.willsarg.com/mellow-heron" target="_blank" rel="noreferrer">Open building viewer ↗</a>
     </header>
 
     <section class="grid">
       <div class="panel game-panel">
+        <div id="controllerState" class="controller-state">CHECKING CONTROLLER…</div>
         <div class="toolbar">
           <div class="ownership"><span>Top <b id="topOwner" class="owner">AI</b></span><span>Bottom <b id="bottomOwner" class="owner">AI</b></span></div>
           <label>Speed
@@ -59,12 +60,14 @@
 
       <aside class="panel info-panel">
         <h2>Live display</h2>
-        <p id="status" class="status">Starting AI and connecting to mellow-heron…</p>
+        <p id="status" class="status">Checking whether another laptop already has control…</p>
         <div class="instance"><code>https://sundai.willsarg.com/api/i/mellow-heron/frame</code></div>
+        <h3>Single-player lock</h3>
+        <p>The first browser to get the controller lease can play. Later visitors are spectator-only and cannot send paddle input or frames.</p>
+        <p>If the active browser closes or disconnects, the lock expires automatically after a few seconds and a spectator can take over.</p>
         <h3>Takeover rule</h3>
         <p><strong>A/D:</strong> claims the top paddle and disables top AI.</p>
         <p><strong>←/→:</strong> claims the bottom paddle and disables bottom AI.</p>
-        <p>The other paddle stays AI-controlled until its own controls are used.</p>
         <h3>Scoring</h3>
         <p>A point is awarded only when the opponent misses. A paddle deflection never changes the score.</p>
         <h3>Building viewer</h3>
@@ -73,6 +76,6 @@
       </aside>
     </section>
   </main>
-  <script src="script.js?v=5"></script>
+  <script src="script.js?v=6"></script>
 </body>
 </html>
